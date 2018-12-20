@@ -27,7 +27,7 @@ def ParseArgs():
     Function to parse command line arguments
     '''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--fn', type=str, help="Name of LC data file")
+    parser.add_argument('--fn', type=str, nargs='*', help="Name of LC data file")
     parser.add_argument('-lk', '--lightkurve', action='store_true', help="Add this to use lightkurve to flatten the flux time series")
     parser.add_argument('-s', '--save', action='store_true', help="Add this to save the output plot instead of displaying")
     return parser.parse_args()
@@ -205,10 +205,10 @@ def lc_fit(time, flux, err, period, epoch, tdur, ticid, toiid, Tmag, Rs, sector)
         plt.ylim((f_bin.min()-t_depth/200, 1+t_depth/200))
     
     time1 = TIME()
-    print("Time taken to fit: {:.4f} s".format(time1-time0))
+    print("Time taken: {:.4f} s".format(time1-time0))
 
     if args.save:
-        plt.savefig('/home/astro/phrvdf/TESS_Fitting/tess_quickfit_plots/tess_{:.2f}_{}_lcfit_sector{}.png'.format(toiid, ticid, sector))
+        plt.savefig('/home/astro/phrvdf/tess_data_alerts/tess_LC_quickfit_plots/tess_{:.2f}_{}_lcfit_sector{}.png'.format(toiid, ticid, sector))
     
     else:
         plt.show()
@@ -300,7 +300,7 @@ def lc_fit_lk(time, flux, flux_unflat, err, period, epoch, tdur, objid, Tmag, Rs
         plt.ylim((f_bin.min()-t_depth/200, 1+t_depth/200))
     
     time1 = TIME()
-    print("Time taken to fit: {:.4f} s".format(time1-time0))
+    print("Time taken: {:.4f} s".format(time1-time0))
 
     plt.show()
     return p_best, f_best, p_fit, f_fit, e_fit, rp_best, a_best, inc_best, t0_best, t_dur, t_depth, res
@@ -336,59 +336,75 @@ if __name__ == '__main__':
     df = pandas.read_csv('/home/astro/phrvdf/tess_data_alerts/toi_ephems.csv', index_col='tic_id')		#.csv file containing info on parameters (period, epoch, ID, etc.) of all TOIs
     length=len(df.iloc[0])
     
-    time, flux, err, tic, Tmag, Rs, sector = tess_LC_dataload(args.fn)
+    for fn in args.fn:
     
-    df2 = df.loc[tic]
-    if len(df2) == length:
+        time, flux, err, tic, Tmag, Rs, sector = tess_LC_dataload(fn)
     
-        epoch = df.loc[tic, 'Epoc']
-        per = df.loc[tic, 'Period']
-        tdur = df.loc[tic, 'Duration']
-        toi = df.loc[tic, 'toi_id']
-        
-        print('Running fit for TIC {} (TOI-00{})'.format(tic, toi))
-        print('Epoch: {}; Per: {}; tdur: {}'.format(epoch, per, tdur))
-        
-        if args.lightkurve: flux, err, trend_flux, flux_trend = lc_detrend(time, flux, err, per, epoch, tdur)
-       
-        p_best, f_best, p_fit, f_fit, e_fit, rp_best, a_best, inc_best, t0_best, t_dur, t_depth, res = lc_fit(time, flux, err, per, epoch, tdur, tic, toi, Tmag, Rs, sector)
-            
-        df.loc[tic, 't0_best'] = t0_best
-        df.loc[tic, 'rp_best'] = rp_best
-        df.loc[tic, 'Rp [Rjup]'] = rp_best * Rs * R_sun.value / R_jup.value
-        df.loc[tic, 'Rp [Rearth]'] = rp_best * Rs * R_sun.value / R_earth.value
-        df.loc[tic, 'Rs [Rsun]'] = Rs
-        df.loc[tic, 'a_best'] = a_best
-        df.loc[tic, 'inc_best'] = inc_best
-        df.loc[tic, 'b_best'] = a_best * np.cos(inc_best * np.pi / 180.)
-        df.loc[tic, 't_dur'] = t_dur
-        df.loc[tic, 't_depth'] = t_depth * 10000
-            
-            
-    else:
-        for j in range(len(df2)):
-            
-            df3 = df2.iloc[j]
-            
-            epoch = df3.loc['Epoc']
-            per = df3.loc['Period']
-            tdur = df3.loc['Duration']
-            toi = df3.loc['toi_id']
+        df2 = df.loc[tic]
+        if len(df2) == length:
+    
+            epoch = df.loc[tic, 'Epoc']
+            per = df.loc[tic, 'Period']
+            tdur = df.loc[tic, 'Duration']
+            toi = df.loc[tic, 'toi_id']
         
             print('Running fit for TIC {} (TOI-00{})'.format(tic, toi))
             print('Epoch: {}; Per: {}; tdur: {}'.format(epoch, per, tdur))
-            
+        
             if args.lightkurve: flux, err, trend_flux, flux_trend = lc_detrend(time, flux, err, per, epoch, tdur)
+       
             p_best, f_best, p_fit, f_fit, e_fit, rp_best, a_best, inc_best, t0_best, t_dur, t_depth, res = lc_fit(time, flux, err, per, epoch, tdur, tic, toi, Tmag, Rs, sector)
+            
+            df.loc[tic, 't0_best'] = t0_best
+            df.loc[tic, 'rp_best'] = rp_best
+            df.loc[tic, 'Rp [Rjup]'] = rp_best * Rs * R_sun.value / R_jup.value
+            df.loc[tic, 'Rp [Rearth]'] = rp_best * Rs * R_sun.value / R_earth.value
+            df.loc[tic, 'Rs [Rsun]'] = Rs
+            df.loc[tic, 'a_best'] = a_best
+            df.loc[tic, 'inc_best'] = inc_best
+            df.loc[tic, 'b_best'] = a_best * np.cos(inc_best * np.pi / 180.)
+            df.loc[tic, 't_dur'] = t_dur
+            df.loc[tic, 't_depth'] = t_depth * 10000
+            
+            
+        else:
+            for j in range(len(df2)):
+            
+                df3 = df2.iloc[j]
+            
+                epoch = df3.loc['Epoc']
+                per = df3.loc['Period']
+                tdur = df3.loc['Duration']
+                toi = df3.loc['toi_id']
+        
+                print('Running fit for TIC {} (TOI-00{})'.format(tic, toi))
+                print('Epoch: {}; Per: {}; tdur: {}'.format(epoch, per, tdur))
+            
+                if args.lightkurve: flux, err, trend_flux, flux_trend = lc_detrend(time, flux, err, per, epoch, tdur)
+                p_best, f_best, p_fit, f_fit, e_fit, rp_best, a_best, inc_best, t0_best, t_dur, t_depth, res = lc_fit(time, flux, err, per, epoch, tdur, tic, toi, Tmag, Rs, sector)
                 
-            df.loc[df['toi_id'] == toi, 't0_best'] = t0_best
-            df.loc[df['toi_id'] == toi, 'rp_best'] = rp_best
-            df.loc[df['toi_id'] == toi, 'Rp [Rjup]'] = rp_best * Rs * R_sun.value / R_jup.value
-            df.loc[df['toi_id'] == toi, 'Rp [Rearth]'] = rp_best * Rs * R_sun.value / R_earth.value
-            df.loc[df['toi_id'] == toi, 'Rs [Rsun]'] = Rs
-            df.loc[df['toi_id'] == toi, 'a_best'] = a_best
-            df.loc[df['toi_id'] == toi, 'inc_best'] = inc_best
-            df.loc[df['toi_id'] == toi, 'b_best'] = a_best * np.cos(inc_best * np.pi / 180.)
-            df.loc[df['toi_id'] == toi, 't_dur'] = t_dur
-            df.loc[df['toi_id'] == toi, 't_depth'] = t_depth * 10000
+                df.loc[df['toi_id'] == toi, 't0_best'] = t0_best
+                df.loc[df['toi_id'] == toi, 'rp_best'] = rp_best
+                df.loc[df['toi_id'] == toi, 'Rp [Rjup]'] = rp_best * Rs * R_sun.value / R_jup.value
+                df.loc[df['toi_id'] == toi, 'Rp [Rearth]'] = rp_best * Rs * R_sun.value / R_earth.value
+                df.loc[df['toi_id'] == toi, 'Rs [Rsun]'] = Rs
+                df.loc[df['toi_id'] == toi, 'a_best'] = a_best
+                df.loc[df['toi_id'] == toi, 'inc_best'] = inc_best
+                df.loc[df['toi_id'] == toi, 'b_best'] = a_best * np.cos(inc_best * np.pi / 180.)
+                df.loc[df['toi_id'] == toi, 't_dur'] = t_dur
+                df.loc[df['toi_id'] == toi, 't_depth'] = t_depth * 10000
     df.to_csv('/home/astro/phrvdf/tess_data_alerts/toi_ephems.csv')        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
